@@ -33,37 +33,28 @@
   <!-- ═══════════════════════════════ GAME SCREEN ════════════════════════════════ -->
   <div id="screen-game" class="screen hidden">
 
-    <!-- Header -->
+    <!-- Header: title only -->
     <header class="game-header">
-      <div class="header-title">
-        <span class="suit-icon">♠</span>
-        <span class="header-logo">BLACKJACK</span>
-        <span class="suit-icon">♥</span>
-      </div>
-      <div class="header-balance">
-        <span class="balance-label">BALANCE</span>
-        <span class="balance-amount" id="balance-display">$0</span>
-      </div>
+      <span class="suit-icon">♠</span>
+      <span class="header-logo">BLACKJACK</span>
+      <span class="suit-icon">♥</span>
     </header>
 
-    <!-- Table -->
+    <!-- Table felt: fixed height, dealer + player centered close together -->
     <div class="table-wrap">
       <div class="table-felt">
 
-        <!-- Dealer zone -->
         <div class="zone dealer-zone">
           <div class="zone-label">DEALER</div>
           <div class="cards-row" id="dealer-cards"></div>
           <div class="total-badge" id="dealer-total"></div>
         </div>
 
-        <!-- Center strip: message + shoe indicator -->
         <div class="table-center">
           <div class="center-message" id="center-message"></div>
           <div class="shoe-indicator" id="shoe-indicator"></div>
         </div>
 
-        <!-- Player zone -->
         <div class="zone player-zone">
           <div class="player-hands-row" id="player-hands-row"></div>
         </div>
@@ -71,8 +62,13 @@
       </div>
     </div>
 
-    <!-- Bottom Action Area -->
+    <!-- Bottom action area: balance always visible, panels swap below -->
     <div class="action-area">
+
+      <div class="bottom-balance-row">
+        <span class="bi-label">BALANCE</span>
+        <span class="bi-value" id="balance-display">$0</span>
+      </div>
 
       <!-- Betting Panel -->
       <div id="panel-betting" class="action-panel">
@@ -100,13 +96,15 @@
           <button id="btn-double" class="btn btn-action double" disabled>DOUBLE</button>
           <button id="btn-split"  class="btn btn-action split"  disabled>SPLIT</button>
         </div>
-        <div class="action-hint" id="action-hint"></div>
       </div>
 
       <!-- Result Panel -->
       <div id="panel-result" class="action-panel hidden">
         <div class="result-row" id="result-row"></div>
-        <button id="next-hand-btn" class="btn btn-primary">NEXT HAND</button>
+        <div class="result-buttons">
+          <button id="rebet-deal-btn" class="btn btn-primary">REBET &amp; DEAL</button>
+          <button id="change-bet-btn" class="btn btn-secondary">CHANGE BET</button>
+        </div>
       </div>
 
     </div>
@@ -122,7 +120,6 @@
     </div>
   </div>
 
-  <!-- Toast notification -->
   <div id="toast" class="toast hidden"></div>
 
   <script src="/static/js/game.js"></script>

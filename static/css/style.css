@@ -348,6 +348,10 @@ body {
   font-weight: 600;
 }
 
+.player-zone {
+  margin-top: 16px;  /* pushes player zone down so result badges don't clip shoe text */
+}
+
 /* ═══════════════════════════════════════════════
    TABLE CENTER STRIP
 ═══════════════════════════════════════════════ */

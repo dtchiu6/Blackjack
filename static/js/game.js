@@ -3,13 +3,14 @@
 /* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
-let state       = null;
-let pendingBet  = 0;
-let useImages   = false;
-let toastTimer  = null;
-let animating   = false;          // blocks clicks during dealer reveal
-let prevPhase   = null;           // tracks last rendered phase
-let handCounts  = null;           // card-per-hand counts from last render (null = new hand)
+let state          = null;
+let pendingBet     = 0;
+let useImages      = false;
+let toastTimer     = null;
+let animating      = false;
+let prevPhase      = null;
+let handCounts     = null;   // card-per-hand counts from last render (null = fresh hand)
+let dealAnimTimer  = null;   // setTimeout handle for count-up badge animation
 
 /* ═══════════════════════════════════════════
    HELPERS
@@ -24,6 +25,31 @@ const api = {
     body: JSON.stringify(d),
   }).then(r => r.json()),
 };
+
+/* Card value helpers (mirrors Python logic) */
+function rankValue(rank) {
+  if (rank === "A") return 11;
+  if (["J", "Q", "K"].includes(rank)) return 10;
+  return parseInt(rank, 10);
+}
+
+/**
+ * Compute { total, isSoft, isBJ } from an array of card dicts,
+ * ignoring hidden cards. Works the same as hand_total() in Python.
+ */
+function computeHandInfo(cards) {
+  let total = 0, aces = 0;
+  cards.filter(c => !c.hidden).forEach(c => {
+    const v = rankValue(c.rank);
+    total += v;
+    if (v === 11) aces++;
+  });
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  const visible = cards.filter(c => !c.hidden);
+  const isSoft  = aces > 0 && total <= 21;
+  const isBJ    = visible.length === 2 && cards.length === 2 && total === 21;
+  return { total, isSoft, isBJ };
+}
 
 /* ═══════════════════════════════════════════
    INIT
@@ -53,7 +79,6 @@ async function render(s) {
   const incoming = s.phase;
   const outgoing = prevPhase;
 
-  // Non-game screens
   if (incoming === "setup") {
     state = s; prevPhase = incoming;
     showScreen("setup");
@@ -67,7 +92,7 @@ async function render(s) {
 
   showScreen("game");
 
-  // Reset card tracking when a fresh hand is dealt
+  // Reset card tracking at the start of each fresh deal
   if (outgoing === "betting" || outgoing === null || outgoing === "setup") {
     handCounts = null;
   }
@@ -75,7 +100,6 @@ async function render(s) {
   state = s;
   prevPhase = incoming;
 
-  // Animate dealer reveal when transitioning out of player_turn
   if (outgoing === "player_turn" && incoming === "resolution") {
     await animateDealerReveal(s);
     return;
@@ -84,13 +108,36 @@ async function render(s) {
   doRender(s);
 }
 
-/* Standard synchronous render */
 function doRender(s) {
   updateBottomBalance(s.balance);
   renderDealer(s.dealer, s.phase);
   renderPlayerHands(s.player_hands, s.phase);
   renderCenter(s);
   renderActionArea(s);
+}
+
+/* ═══════════════════════════════════════════
+   DEALER BADGE HELPER
+   Works from any array of card dicts (hidden or not).
+═══════════════════════════════════════════ */
+function updateDealerBadge(cards) {
+  const badge = document.getElementById("dealer-total");
+  const info  = computeHandInfo(cards);
+  if (info.total > 0) {
+    if (info.isBJ) {
+      badge.textContent = "BJ — 21";
+      badge.style.color = "var(--gold)";
+    } else if (info.isSoft && info.total < 21) {
+      badge.textContent = "soft " + info.total;
+      badge.style.color = "";
+    } else {
+      badge.textContent = info.total;
+      badge.style.color = "";
+    }
+  } else {
+    badge.textContent = "";
+    badge.style.color = "";
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -104,7 +151,6 @@ async function animateDealerReveal(s) {
   // Show player hands without result badges
   renderPlayerHands(s.player_hands, "player_turn");
 
-  // Clear center message while dealer plays out
   const msgEl = document.getElementById("center-message");
   msgEl.className = "center-message";
   msgEl.textContent = "";
@@ -112,43 +158,37 @@ async function animateDealerReveal(s) {
   // Show dealer with hole card still face-down
   const faceDownDealer = {
     cards: [s.dealer.cards[0], { hidden: true, image: "back" }],
-    total: null,
-    is_soft: false,
-    is_blackjack: false,
+    total: null, is_soft: false, is_blackjack: false,
   };
   renderDealer(faceDownDealer, "player_turn");
 
   await sleep(550);
 
-  // Flip the hole card in place
+  // Flip hole card in place
   const dealerRow = document.getElementById("dealer-cards");
-  const holeEl = dealerRow.children[1];
+  const holeEl    = dealerRow.children[1];
   if (holeEl && s.dealer.cards[1]) {
     const revealed = buildCard(s.dealer.cards[1], 1, false, 0);
     revealed.classList.add("flip-in");
     holeEl.replaceWith(revealed);
   }
 
+  // Update badge immediately after flip
+  updateDealerBadge([s.dealer.cards[0], s.dealer.cards[1]]);
+
   await sleep(480);
 
-  // Deal any additional cards the dealer drew
+  // Deal any extra cards the dealer drew, one by one
   for (let i = 2; i < s.dealer.cards.length; i++) {
     const cardEl = buildCard(s.dealer.cards[i], i, false, 0);
     dealerRow.appendChild(cardEl);
+    updateDealerBadge(s.dealer.cards.slice(0, i + 1));
     await sleep(440);
-  }
-
-  // Update dealer total badge
-  const totalEl = document.getElementById("dealer-total");
-  if (s.dealer.total !== null) {
-    const soft = s.dealer.is_soft && s.dealer.total < 21 ? "soft " : "";
-    totalEl.textContent = s.dealer.is_blackjack ? "BJ — 21" : (soft + s.dealer.total);
-    totalEl.style.color = s.dealer.is_blackjack ? "var(--gold)" : "";
   }
 
   await sleep(380);
 
-  // Reveal results: badges on player hands + result panel
+  // Reveal everything
   renderPlayerHands(s.player_hands, "resolution");
   renderCenter(s);
   renderActionArea(s);
@@ -178,33 +218,26 @@ function updateBottomBalance(balance) {
    DEALER RENDER
 ═══════════════════════════════════════════ */
 function renderDealer(dealer, phase) {
-  const row    = document.getElementById("dealer-cards");
-  const badge  = document.getElementById("dealer-total");
-
+  const row = document.getElementById("dealer-cards");
   row.innerHTML = "";
   dealer.cards.forEach((card, i) => {
-    // Initial deal: stagger dealer cards slightly after player cards
     const delay = (handCounts === null) ? 0.3 + i * 0.16 : 0;
     row.appendChild(buildCard(card, i, false, delay));
   });
-
-  if (dealer.total !== null && dealer.cards.length) {
-    const soft = dealer.is_soft && dealer.total < 21 ? "soft " : "";
-    badge.textContent = dealer.is_blackjack ? "BJ — 21" : (soft + dealer.total);
-    badge.style.color = dealer.is_blackjack ? "var(--gold)" : "";
-  } else {
-    badge.textContent = "";
-    badge.style.color = "";
-  }
+  // Always compute from visible cards so we show the face-up card value
+  // even while the hole card is hidden
+  updateDealerBadge(dealer.cards);
 }
 
 /* ═══════════════════════════════════════════
    PLAYER HANDS RENDER
 ═══════════════════════════════════════════ */
 function renderPlayerHands(hands, phase) {
+  clearTimeout(dealAnimTimer);
+  dealAnimTimer = null;
+
   const row = document.getElementById("player-hands-row");
 
-  // Detect split (hand count changed) — treat all cards as new
   const splitOccurred = handCounts !== null && hands.length !== handCounts.length;
   const prevCounts    = splitOccurred ? null : handCounts;
   const isInitialDeal = prevCounts === null;
@@ -214,10 +247,9 @@ function renderPlayerHands(hands, phase) {
   hands.forEach((hand, hi) => {
     const handEl = document.createElement("div");
     handEl.className = "player-hand";
-    if (hand.is_active)  handEl.classList.add("active");
-    if (hand.result)     handEl.classList.add(`result-${hand.result}`);
+    if (hand.is_active) handEl.classList.add("active");
+    if (hand.result)    handEl.classList.add(`result-${hand.result}`);
 
-    // Result badge (only at resolution phase)
     if (hand.result && phase === "resolution") {
       const badge = document.createElement("div");
       badge.className = "hand-result-badge";
@@ -225,24 +257,24 @@ function renderPlayerHands(hands, phase) {
       handEl.appendChild(badge);
     }
 
-    // Cards — only animate new cards
     const cardsDiv = document.createElement("div");
     cardsDiv.className = "cards-row";
     const prevCount = (prevCounts && hi < prevCounts.length) ? prevCounts[hi] : 0;
 
     hand.cards.forEach((card, ci) => {
       const isExisting = !isInitialDeal && ci < prevCount;
-      const delay      = isInitialDeal ? ci * 0.16 : 0;  // stagger on fresh deal only
+      const delay      = isInitialDeal ? ci * 0.16 : 0;
       cardsDiv.appendChild(buildCard(card, ci, isExisting, delay));
     });
     handEl.appendChild(cardsDiv);
 
-    // Totals + bet
+    // Total + bet badges
     const meta = document.createElement("div");
     meta.className = "hand-meta";
 
     const totalBadge = document.createElement("span");
     totalBadge.className = "hand-total-badge";
+
     if (hand.total > 21) {
       totalBadge.textContent = "BUST";
       totalBadge.classList.add("bust");
@@ -255,6 +287,29 @@ function renderPlayerHands(hands, phase) {
       if (hand.is_soft) totalBadge.classList.add("soft");
     }
 
+    // Count-up: on the initial 2-card deal, briefly show first card's value
+    // then update to the real total once the second card animates in.
+    if (isInitialDeal && hand.cards.length >= 2 && phase !== "resolution") {
+      const info0 = computeHandInfo([hand.cards[0]]);
+      totalBadge.textContent = info0.total;   // show first card value initially
+      totalBadge.classList.remove("soft", "bj", "bust");
+
+      const finalText  = hand.is_blackjack ? "BJ"
+                       : hand.is_soft      ? "soft " + hand.total
+                                           : String(hand.total);
+      const finalClass = hand.is_blackjack ? "bj"
+                       : hand.is_soft      ? "soft"
+                       : "";
+
+      // 0.16s (second card delay) + 0.28s (animation) ≈ 440 ms
+      dealAnimTimer = setTimeout(() => {
+        if (totalBadge.isConnected) {
+          totalBadge.textContent = finalText;
+          if (finalClass) totalBadge.classList.add(finalClass);
+        }
+      }, 440);
+    }
+
     const betBadge = document.createElement("span");
     betBadge.className = "hand-bet-badge";
     betBadge.textContent = "$" + hand.bet.toLocaleString();
@@ -264,7 +319,6 @@ function renderPlayerHands(hands, phase) {
     row.appendChild(handEl);
   });
 
-  // Update card counts for next render
   handCounts = hands.map(h => h.cards.length);
 }
 
@@ -321,9 +375,8 @@ function renderActionArea(s) {
   } else if (s.phase === "resolution") {
     document.getElementById("panel-result").classList.remove("hidden");
     renderResultPanel(s);
-    // Disable rebet-deal if can't afford same bet
-    const rebetBtn = document.getElementById("rebet-deal-btn");
-    rebetBtn.disabled = s.last_bet < 1 || s.last_bet >= s.balance;
+    document.getElementById("rebet-deal-btn").disabled =
+      s.last_bet < 1 || s.last_bet >= s.balance;
   }
 }
 
@@ -339,7 +392,7 @@ function renderResultPanel(s) {
   const row = document.getElementById("result-row");
   row.innerHTML = "";
   s.player_hands.forEach(hand => {
-    const item  = document.createElement("div");
+    const item = document.createElement("div");
     item.className = "result-item";
 
     const lbl = document.createElement("div");
@@ -365,7 +418,7 @@ function buildCard(cardData, index, isExisting = false, delay = 0) {
   el.className = "card";
 
   if (isExisting) {
-    el.style.animation = "none";    // skip re-animation for cards already on table
+    el.style.animation = "none";
   } else {
     el.style.animationDelay = `${delay}s`;
   }
@@ -378,7 +431,7 @@ function buildCard(cardData, index, isExisting = false, delay = 0) {
   el.classList.add(cardData.is_red ? "red" : "black");
 
   if (useImages) {
-    const img   = document.createElement("img");
+    const img     = document.createElement("img");
     img.className = "card-img";
     img.src       = `/static/images/cards/${cardData.image}.png`;
     img.onerror   = () => { el.innerHTML = ""; el.classList.remove("has-image"); renderCSSCard(el, cardData); };
@@ -432,9 +485,9 @@ function bindEvents() {
 
   /* ── Setup ── */
   document.getElementById("start-btn").addEventListener("click", async () => {
-    const raw = document.getElementById("balance-input").value.replace(/,/g, "");
+    const raw     = document.getElementById("balance-input").value.replace(/,/g, "");
     const balance = parseInt(raw, 10);
-    const errEl = document.getElementById("setup-error");
+    const errEl   = document.getElementById("setup-error");
     if (isNaN(balance) || balance < 1 || balance > 999_999_999) {
       errEl.textContent = "Enter a whole number between $1 and $999,999,999.";
       errEl.classList.remove("hidden");
@@ -485,14 +538,12 @@ function bindEvents() {
     });
   });
 
-  /* ── Rebet & Deal ── */
+  /* ── Rebet & Deal — uses atomic /api/rebet_deal endpoint ── */
   document.getElementById("rebet-deal-btn").addEventListener("click", async () => {
     if (animating || !state) return;
-    const bet = state.last_bet;
-    if (bet < 1 || bet >= state.balance) return;
-    prevPhase = "betting"; // so render knows it's a fresh deal
+    prevPhase  = "betting";
     handCounts = null;
-    const s = await api.post("/api/bet", { bet });
+    const s = await api.post("/api/rebet_deal");
     if (s.error) { showToast(s.error); return; }
     render(s);
   });
@@ -507,7 +558,7 @@ function bindEvents() {
   /* ── Restart ── */
   document.getElementById("restart-btn").addEventListener("click", async () => {
     const s = await api.post("/api/restart");
-    prevPhase = null;
+    prevPhase  = null;
     handCounts = null;
     render(s);
   });
@@ -516,12 +567,12 @@ function bindEvents() {
   document.addEventListener("keydown", async e => {
     if (animating) return;
 
-    // Player actions: H / S / D / P
+    // H / S / D / P during player turn
     if (state?.phase === "player_turn") {
       const hand    = state.player_hands[state.current_hand_idx];
       const actions = hand?.available_actions ?? [];
-      const map = { h: "hit", s: "stand", d: "double", p: "split" };
-      const act = map[e.key.toLowerCase()];
+      const map     = { h: "hit", s: "stand", d: "double", p: "split" };
+      const act     = map[e.key.toLowerCase()];
       if (act && actions.includes(act)) {
         e.preventDefault();
         const s = await api.post("/api/action", { action: act });
@@ -530,15 +581,12 @@ function bindEvents() {
       }
     }
 
-    // Enter / Space at resolution → rebet & deal (if available) else change bet
+    // Enter / Space at resolution → rebet & deal if possible, else change bet
     if (state?.phase === "resolution" && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       const rebetBtn = document.getElementById("rebet-deal-btn");
-      if (!rebetBtn.disabled) {
-        rebetBtn.click();
-      } else {
-        document.getElementById("change-bet-btn").click();
-      }
+      if (!rebetBtn.disabled) rebetBtn.click();
+      else document.getElementById("change-bet-btn").click();
     }
   });
 }

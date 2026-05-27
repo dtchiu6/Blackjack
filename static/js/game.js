@@ -91,11 +91,6 @@ async function render(s) {
     showScreen("setup");
     return;
   }
-  if (incoming === "game_over") {
-    state = s; prevPhase = incoming;
-    showScreen("gameover");
-    return;
-  }
 
   showScreen("game");
 
@@ -108,12 +103,26 @@ async function render(s) {
   state = s;
   prevPhase = incoming;
 
-  if (outgoing === "player_turn" && incoming === "resolution") {
+  if (outgoing === "player_turn" && (incoming === "resolution" || incoming === "game_over")) {
     await animateDealerReveal(s, oldBalance);
+    if (incoming === "game_over") {
+      animating = true;
+      await sleep(2500);
+      animating = false;
+      showScreen("gameover");
+    }
     return;
   }
 
   doRender(s, oldBalance);
+
+  if (incoming === "game_over") {
+    // Dealer BJ or instant resolve path — show result then go to game over
+    animating = true;
+    await sleep(2500);
+    animating = false;
+    showScreen("gameover");
+  }
 }
 
 function doRender(s, oldBalance) {
@@ -270,7 +279,7 @@ function renderPlayerHands(hands, phase) {
     if (hand.is_active) handEl.classList.add("active");
     if (hand.result)    handEl.classList.add(`result-${hand.result}`);
 
-    if (hand.result && phase === "resolution") {
+    if (hand.result && (phase === "resolution" || phase === "game_over")) {
       const badge = document.createElement("div");
       badge.className = "hand-result-badge";
       badge.textContent = resultLabel(hand);
@@ -339,7 +348,7 @@ function renderCenter(s) {
     msgEl.classList.add("neutral");
   } else if (s.phase === "player_turn") {
     msgEl.textContent = "";
-  } else if (s.phase === "resolution") {
+  } else if (s.phase === "resolution" || s.phase === "game_over") {
     msgEl.textContent = s.message;
     const net = s.player_hands.reduce((a, h) => a + h.net, 0);
     msgEl.classList.add(net > 0 ? "win" : net < 0 ? "loss" : "push");

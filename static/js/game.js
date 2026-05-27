@@ -10,7 +10,7 @@ let toastTimer     = null;
 let animating      = false;
 let prevPhase      = null;
 let handCounts     = null;   // card-per-hand counts from last render (null = fresh hand)
-let dealAnimTimer  = null;   // setTimeout handle for count-up badge animation
+let sessionId      = null;   // detects server restart
 
 /* ═══════════════════════════════════════════
    HELPERS
@@ -75,6 +75,13 @@ function checkCardImages() {
 ═══════════════════════════════════════════ */
 async function render(s) {
   if (animating) return;
+
+  // If the server restarted, its session_id will differ — reload to get fresh state.
+  if (sessionId !== null && s.session_id !== sessionId) {
+    location.reload();
+    return;
+  }
+  sessionId = s.session_id;
 
   const incoming = s.phase;
   const outgoing = prevPhase;
@@ -233,9 +240,6 @@ function renderDealer(dealer, phase) {
    PLAYER HANDS RENDER
 ═══════════════════════════════════════════ */
 function renderPlayerHands(hands, phase) {
-  clearTimeout(dealAnimTimer);
-  dealAnimTimer = null;
-
   const row = document.getElementById("player-hands-row");
 
   const splitOccurred = handCounts !== null && hands.length !== handCounts.length;
@@ -285,29 +289,6 @@ function renderPlayerHands(hands, phase) {
       const soft = hand.is_soft ? "soft " : "";
       totalBadge.textContent = soft + hand.total;
       if (hand.is_soft) totalBadge.classList.add("soft");
-    }
-
-    // Count-up: on the initial 2-card deal, briefly show first card's value
-    // then update to the real total once the second card animates in.
-    if (isInitialDeal && hand.cards.length >= 2 && phase !== "resolution") {
-      const info0 = computeHandInfo([hand.cards[0]]);
-      totalBadge.textContent = info0.total;   // show first card value initially
-      totalBadge.classList.remove("soft", "bj", "bust");
-
-      const finalText  = hand.is_blackjack ? "BJ"
-                       : hand.is_soft      ? "soft " + hand.total
-                                           : String(hand.total);
-      const finalClass = hand.is_blackjack ? "bj"
-                       : hand.is_soft      ? "soft"
-                       : "";
-
-      // 0.16s (second card delay) + 0.28s (animation) ≈ 440 ms
-      dealAnimTimer = setTimeout(() => {
-        if (totalBadge.isConnected) {
-          totalBadge.textContent = finalText;
-          if (finalClass) totalBadge.classList.add(finalClass);
-        }
-      }, 440);
     }
 
     const betBadge = document.createElement("span");
@@ -376,7 +357,9 @@ function renderActionArea(s) {
     document.getElementById("panel-result").classList.remove("hidden");
     renderResultPanel(s);
     document.getElementById("rebet-deal-btn").disabled =
-      s.last_bet < 1 || s.last_bet >= s.balance;
+      s.last_bet < 1 || s.last_bet > s.balance;
+    document.getElementById("double-deal-btn").disabled =
+      s.last_bet < 1 || s.last_bet * 2 > s.balance;
   }
 }
 
@@ -464,7 +447,7 @@ function renderCSSCard(el, card) {
 ═══════════════════════════════════════════ */
 function addChip(value) {
   if (!state || animating) return;
-  pendingBet = Math.min(pendingBet + value, state.balance - 1);
+  pendingBet = Math.min(pendingBet + value, state.balance);
   updateBetDisplay();
 }
 
@@ -538,12 +521,22 @@ function bindEvents() {
     });
   });
 
-  /* ── Rebet & Deal — uses atomic /api/rebet_deal endpoint ── */
+  /* ── Rebet & Deal ── */
   document.getElementById("rebet-deal-btn").addEventListener("click", async () => {
     if (animating || !state) return;
     prevPhase  = "betting";
     handCounts = null;
     const s = await api.post("/api/rebet_deal");
+    if (s.error) { showToast(s.error); return; }
+    render(s);
+  });
+
+  /* ── 2X & Deal ── */
+  document.getElementById("double-deal-btn").addEventListener("click", async () => {
+    if (animating || !state) return;
+    prevPhase  = "betting";
+    handCounts = null;
+    const s = await api.post("/api/double_deal");
     if (s.error) { showToast(s.error); return; }
     render(s);
   });

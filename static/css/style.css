@@ -43,7 +43,7 @@ body {
 .screen {
   display: flex;
   width: 100%;
-  max-width: 560px;
+  max-width: 720px;
   flex-direction: column;
   align-items: center;
 }
@@ -329,7 +329,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════
-   ZONES — naturally sized, don't grow
+   ZONES — FIXED heights so the board never shifts
 ═══════════════════════════════════════════════ */
 .zone {
   display: flex;
@@ -338,6 +338,8 @@ body {
   gap: 7px;
   flex: none;
   width: 100%;
+  height: 168px;     /* label(20) + gap(7) + card(108) + gap(7) + badge(22) + slack */
+  overflow: visible; /* cards stay visible even if they slightly exceed this height */
 }
 
 .zone-label {
@@ -349,19 +351,24 @@ body {
 }
 
 .player-zone {
-  margin-top: 16px;  /* pushes player zone down so result badges don't clip shoe text */
+  margin-top: 20px;   /* gap between shoe text and result badges */
+  padding-top: 18px;  /* push cards down within the zone so -14px badges have clearance */
+  height: 168px;
 }
 
 /* ═══════════════════════════════════════════════
-   TABLE CENTER STRIP
+   TABLE CENTER STRIP — fixed height, never moves
 ═══════════════════════════════════════════════ */
 .table-center {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
-  padding: 5px 0;
   width: 100%;
+  flex: none;
+  height: 52px;
+  min-height: 52px;
   border-top: 1px solid rgba(240,228,200,0.07);
   border-bottom: 1px solid rgba(240,228,200,0.07);
 }
@@ -640,7 +647,7 @@ body {
   color: var(--gold);
 }
 
-.action-panel { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.action-panel { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 150px; }
 .action-panel.hidden { display: none; }
 
 /* Betting panel */
@@ -750,12 +757,15 @@ body {
 .result-net.zero     { color: var(--yellow); }
 
 .result-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   width: 100%;
 }
 
-.result-buttons .btn { flex: 1; }
+.result-btn-wide {
+  grid-column: 1 / -1; /* spans both columns */
+}
 
 /* ═══════════════════════════════════════════════
    GAME OVER SCREEN

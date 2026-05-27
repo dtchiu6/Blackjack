@@ -71,6 +71,17 @@ def rebet_deal():
     return jsonify(game.get_state())
 
 
+@app.route("/api/double_deal", methods=["POST"])
+def double_deal():
+    doubled = game.last_bet * 2
+    if not game.new_hand():
+        return jsonify({"error": "Cannot start new hand."}), 400
+    ok, msg = game.place_bet(doubled)
+    if not ok:
+        return jsonify({"error": msg}), 400
+    return jsonify(game.get_state())
+
+
 @app.route("/api/restart", methods=["POST"])
 def restart():
     game.__init__()

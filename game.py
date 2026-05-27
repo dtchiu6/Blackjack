@@ -1,4 +1,5 @@
 import random
+import uuid
 
 SUITS = ["Hearts", "Clubs", "Spades", "Diamonds"]
 RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
@@ -76,6 +77,7 @@ def card_to_dict(card):
 
 class BlackjackGame:
     def __init__(self):
+        self.session_id = str(uuid.uuid4())
         self.shoe = []
         self.dealt_count = 0
         self.balance = 0
@@ -102,8 +104,8 @@ class BlackjackGame:
             bet = int(bet)
         except (ValueError, TypeError):
             return False, "Invalid bet."
-        if bet < 1 or bet >= self.balance:
-            return False, f"Bet must be between $1 and ${self.balance - 1}."
+        if bet < 1 or bet > self.balance:
+            return False, f"Bet must be between $1 and ${self.balance}."
 
         self.reshuffled = False
         if self.dealt_count >= RESHUFFLE_THRESHOLD:
@@ -311,6 +313,7 @@ class BlackjackGame:
             })
 
         return {
+            "session_id": self.session_id,
             "phase": self.phase,
             "balance": self.balance,
             "last_bet": self.last_bet,

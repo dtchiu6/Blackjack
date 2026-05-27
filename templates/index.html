@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackjack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════ SETUP SCREEN ═══════════════════════════════ -->
+  <div id="screen-setup" class="screen">
+    <div class="setup-card">
+      <div class="setup-logo">
+        <div class="suit-row">♠ ♥ ♦ ♣</div>
+        <h1 class="logo-title">BLACKJACK</h1>
+        <p class="logo-sub">3-Deck Shoe &nbsp;·&nbsp; Dealer Stands Soft 17</p>
+      </div>
+      <div class="setup-form">
+        <label class="field-label" for="balance-input">Starting Balance</label>
+        <div class="input-row">
+          <span class="dollar-prefix">$</span>
+          <input id="balance-input" class="balance-input" type="number" min="1" max="999999999" placeholder="1000" />
+        </div>
+        <p id="setup-error" class="error-text hidden"></p>
+        <button id="start-btn" class="btn btn-primary btn-xl">TAKE A SEAT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ GAME SCREEN ════════════════════════════════ -->
+  <div id="screen-game" class="screen hidden">
+
+    <!-- Header -->
+    <header class="game-header">
+      <div class="header-title">
+        <span class="suit-icon">♠</span>
+        <span class="header-logo">BLACKJACK</span>
+        <span class="suit-icon">♥</span>
+      </div>
+      <div class="header-balance">
+        <span class="balance-label">BALANCE</span>
+        <span class="balance-amount" id="balance-display">$0</span>
+      </div>
+    </header>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <div class="table-felt">
+
+        <!-- Dealer zone -->
+        <div class="zone dealer-zone">
+          <div class="zone-label">DEALER</div>
+          <div class="cards-row" id="dealer-cards"></div>
+          <div class="total-badge" id="dealer-total"></div>
+        </div>
+
+        <!-- Center strip: message + shoe indicator -->
+        <div class="table-center">
+          <div class="center-message" id="center-message"></div>
+          <div class="shoe-indicator" id="shoe-indicator"></div>
+        </div>
+
+        <!-- Player zone -->
+        <div class="zone player-zone">
+          <div class="player-hands-row" id="player-hands-row"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom Action Area -->
+    <div class="action-area">
+
+      <!-- Betting Panel -->
+      <div id="panel-betting" class="action-panel">
+        <div class="bet-display-row">
+          <span class="bet-label">BET</span>
+          <span class="bet-amount" id="bet-amount">$0</span>
+          <button class="btn-icon" id="clear-bet-btn" title="Clear bet">✕</button>
+          <button class="btn-icon rebet" id="rebet-btn" title="Repeat last bet">↺</button>
+        </div>
+        <div class="chips-row">
+          <button class="chip chip-1"   data-value="1">$1</button>
+          <button class="chip chip-5"   data-value="5">$5</button>
+          <button class="chip chip-25"  data-value="25">$25</button>
+          <button class="chip chip-100" data-value="100">$100</button>
+          <button class="chip chip-500" data-value="500">$500</button>
+        </div>
+        <button id="deal-btn" class="btn btn-deal" disabled>DEAL</button>
+      </div>
+
+      <!-- Action Panel -->
+      <div id="panel-action" class="action-panel hidden">
+        <div class="action-buttons">
+          <button id="btn-hit"    class="btn btn-action hit">HIT</button>
+          <button id="btn-stand"  class="btn btn-action stand">STAND</button>
+          <button id="btn-double" class="btn btn-action double" disabled>DOUBLE</button>
+          <button id="btn-split"  class="btn btn-action split"  disabled>SPLIT</button>
+        </div>
+        <div class="action-hint" id="action-hint"></div>
+      </div>
+
+      <!-- Result Panel -->
+      <div id="panel-result" class="action-panel hidden">
+        <div class="result-row" id="result-row"></div>
+        <button id="next-hand-btn" class="btn btn-primary">NEXT HAND</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ GAME OVER SCREEN ═════════════════════════════ -->
+  <div id="screen-gameover" class="screen hidden">
+    <div class="gameover-card">
+      <div class="gameover-suits">♠ ♥ ♦ ♣</div>
+      <h2 class="gameover-title">GAME OVER</h2>
+      <p class="gameover-sub">You've run out of chips.</p>
+      <button id="restart-btn" class="btn btn-primary btn-xl">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/game.js"></script>
+</body>
+</html>

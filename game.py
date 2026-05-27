@@ -205,7 +205,15 @@ class BlackjackGame:
                 h2["done"] = True
                 self._next_hand()
             else:
-                self.message = self._action_hint()
+                # Auto-stand any split hand that immediately reaches 21
+                if hand_total(h1["hand"]) >= 21:
+                    h1["done"] = True
+                if hand_total(h2["hand"]) >= 21:
+                    h2["done"] = True
+                if h1["done"]:
+                    self._next_hand()
+                else:
+                    self.message = self._action_hint()
             return True, "Split."
 
         return False, "Unknown action."

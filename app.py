@@ -15,17 +15,12 @@ def get_state():
     return jsonify(game.get_state())
 
 
+STARTING_BALANCE = 1000
+
 @app.route("/api/start", methods=["POST"])
 def start():
-    data = request.json or {}
-    try:
-        balance = int(str(data.get("balance", "")).replace(",", ""))
-        if not (1 <= balance <= 999_999_999):
-            raise ValueError
-    except (ValueError, TypeError):
-        return jsonify({"error": "Enter a whole number between $1 and $999,999,999."}), 400
     game.__init__()
-    game.start_session(balance)
+    game.start_session(STARTING_BALANCE)
     return jsonify(game.get_state())
 
 

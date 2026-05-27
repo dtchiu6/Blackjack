@@ -500,23 +500,10 @@ function bindEvents() {
 
   /* ── Setup ── */
   document.getElementById("start-btn").addEventListener("click", async () => {
-    const raw     = document.getElementById("balance-input").value.replace(/,/g, "");
-    const balance = parseInt(raw, 10);
-    const errEl   = document.getElementById("setup-error");
-    if (isNaN(balance) || balance < 1 || balance > 999_999_999) {
-      errEl.textContent = "Enter a whole number between $1 and $999,999,999.";
-      errEl.classList.remove("hidden");
-      return;
-    }
-    errEl.classList.add("hidden");
-    const s = await api.post("/api/start", { balance });
+    const s = await api.post("/api/start", { balance: 1000 });
     if (s.error) { showToast(s.error); return; }
     prevPhase = "setup";
     render(s);
-  });
-
-  document.getElementById("balance-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") document.getElementById("start-btn").click();
   });
 
   /* ── Chips ── */

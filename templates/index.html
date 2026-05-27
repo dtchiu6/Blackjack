@@ -88,23 +88,18 @@
         <button id="deal-btn" class="btn btn-deal" disabled>DEAL</button>
       </div>
 
-      <!-- Action Panel -->
-      <div id="panel-action" class="action-panel hidden">
-        <div class="action-buttons">
+      <!-- Play Panel — action buttons during player_turn, result buttons during resolution -->
+      <div id="panel-play" class="action-panel hidden">
+        <div id="action-btns" class="action-buttons">
           <button id="btn-hit"    class="btn btn-action hit">HIT</button>
           <button id="btn-stand"  class="btn btn-action stand">STAND</button>
           <button id="btn-double" class="btn btn-action double" disabled>DOUBLE</button>
           <button id="btn-split"  class="btn btn-action split"  disabled>SPLIT</button>
         </div>
-      </div>
-
-      <!-- Result Panel -->
-      <div id="panel-result" class="action-panel hidden">
-        <div class="result-row" id="result-row"></div>
-        <div class="result-buttons">
-          <button id="rebet-deal-btn"   class="btn btn-primary">REBET &amp; DEAL</button>
-          <button id="double-deal-btn"  class="btn btn-primary">2X &amp; DEAL</button>
-          <button id="change-bet-btn"   class="btn btn-secondary result-btn-wide">CHANGE BET</button>
+        <div id="result-btns" class="result-buttons hidden">
+          <button id="rebet-deal-btn"  class="btn btn-primary">REBET &amp; DEAL</button>
+          <button id="double-deal-btn" class="btn btn-primary">2X &amp; DEAL</button>
+          <button id="change-bet-btn"  class="btn btn-secondary result-btn-wide">CHANGE BET</button>
         </div>
       </div>
 

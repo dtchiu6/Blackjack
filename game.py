@@ -56,8 +56,14 @@ def is_blackjack(hand):
     return len(hand) == 2 and hand_total(hand) == 21
 
 
+TEN_RANKS = {"10", "J", "Q", "K"}
+
 def is_pair(hand):
-    return len(hand) == 2 and hand[0].split(" of ")[0] == hand[1].split(" of ")[0]
+    if len(hand) != 2:
+        return False
+    r1 = hand[0].split(" of ")[0]
+    r2 = hand[1].split(" of ")[0]
+    return r1 == r2 or (r1 in TEN_RANKS and r2 in TEN_RANKS)
 
 
 def card_to_dict(card):
@@ -129,7 +135,7 @@ class BlackjackGame:
         self.current_hand_idx = 0
         self.phase = "player_turn"
 
-        if is_blackjack(player_hand):
+        if is_blackjack(player_hand) or is_blackjack(self.dealer_hand):
             self._resolve_round()
             return True, "Dealt!"
 

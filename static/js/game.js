@@ -104,19 +104,24 @@ async function render(s) {
     handCounts = null;
   }
 
+  const oldBalance = state ? state.balance : s.balance;
   state = s;
   prevPhase = incoming;
 
   if (outgoing === "player_turn" && incoming === "resolution") {
-    await animateDealerReveal(s);
+    await animateDealerReveal(s, oldBalance);
     return;
   }
 
-  doRender(s);
+  doRender(s, oldBalance);
 }
 
-function doRender(s) {
-  updateBottomBalance(s.balance);
+function doRender(s, oldBalance) {
+  if (oldBalance != null && oldBalance !== s.balance) {
+    animateBalance(oldBalance, s.balance);
+  } else {
+    updateBottomBalance(s.balance);
+  }
   renderDealer(s.dealer, s.phase);
   renderPlayerHands(s.player_hands, s.phase);
   renderCenter(s);
@@ -150,10 +155,20 @@ function updateDealerBadge(cards) {
 /* ═══════════════════════════════════════════
    DEALER REVEAL ANIMATION
 ═══════════════════════════════════════════ */
-async function animateDealerReveal(s) {
+async function animateDealerReveal(s, oldBalance) {
   animating = true;
-  hideAllPanels();
-  updateBottomBalance(s.balance);
+
+  // Keep panel-play visible with action buttons disabled (prevents board height shift).
+  // Do NOT call hideAllPanels() here.
+  document.getElementById("panel-betting").classList.add("hidden");
+  document.getElementById("panel-play").classList.remove("hidden");
+  document.getElementById("action-btns").classList.remove("hidden");
+  document.getElementById("result-btns").classList.add("hidden");
+  ["hit", "stand", "double", "split"].forEach(a =>
+    document.getElementById(`btn-${a}`).disabled = true
+  );
+
+  updateBottomBalance(oldBalance);
 
   // Show player hands without result badges
   renderPlayerHands(s.player_hands, "player_turn");
@@ -195,7 +210,8 @@ async function animateDealerReveal(s) {
 
   await sleep(380);
 
-  // Reveal everything
+  // Animate balance, then reveal result UI
+  animateBalance(oldBalance, s.balance);
   renderPlayerHands(s.player_hands, "resolution");
   renderCenter(s);
   renderActionArea(s);
@@ -204,7 +220,7 @@ async function animateDealerReveal(s) {
 }
 
 function hideAllPanels() {
-  ["panel-betting", "panel-action", "panel-result"].forEach(id =>
+  ["panel-betting", "panel-play"].forEach(id =>
     document.getElementById(id).classList.add("hidden")
   );
 }
@@ -351,11 +367,14 @@ function renderActionArea(s) {
     updateBetDisplay();
     document.getElementById("rebet-btn").disabled = s.last_bet < 1;
   } else if (s.phase === "player_turn") {
-    document.getElementById("panel-action").classList.remove("hidden");
+    document.getElementById("panel-play").classList.remove("hidden");
+    document.getElementById("action-btns").classList.remove("hidden");
+    document.getElementById("result-btns").classList.add("hidden");
     updateActionButtons(s);
   } else if (s.phase === "resolution") {
-    document.getElementById("panel-result").classList.remove("hidden");
-    renderResultPanel(s);
+    document.getElementById("panel-play").classList.remove("hidden");
+    document.getElementById("action-btns").classList.add("hidden");
+    document.getElementById("result-btns").classList.remove("hidden");
     document.getElementById("rebet-deal-btn").disabled =
       s.last_bet < 1 || s.last_bet > s.balance;
     document.getElementById("double-deal-btn").disabled =
@@ -371,26 +390,26 @@ function updateActionButtons(s) {
   });
 }
 
-function renderResultPanel(s) {
-  const row = document.getElementById("result-row");
-  row.innerHTML = "";
-  s.player_hands.forEach(hand => {
-    const item = document.createElement("div");
-    item.className = "result-item";
+function animateBalance(from, to, duration = 900) {
+  const el = document.getElementById("balance-display");
+  const diff = to - from;
+  if (diff === 0) { updateBottomBalance(to); return; }
 
-    const lbl = document.createElement("div");
-    lbl.className = `result-label ${hand.result}`;
-    lbl.textContent = resultLabel(hand);
+  el.style.color = diff > 0 ? "var(--green-win)" : "var(--red)";
+  const start = performance.now();
 
-    const net = document.createElement("div");
-    net.className = "result-net";
-    if (hand.net > 0)      { net.textContent = `+$${hand.net.toLocaleString()}`;          net.classList.add("positive"); }
-    else if (hand.net < 0) { net.textContent = `-$${Math.abs(hand.net).toLocaleString()}`; net.classList.add("negative"); }
-    else                   { net.textContent = "—";                                        net.classList.add("zero"); }
-
-    item.append(lbl, net);
-    row.appendChild(item);
-  });
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = "$" + Math.round(from + diff * eased).toLocaleString();
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      el.textContent = "$" + to.toLocaleString();
+      setTimeout(() => { el.style.color = ""; }, 1200);
+    }
+  }
+  requestAnimationFrame(step);
 }
 
 /* ═══════════════════════════════════════════
@@ -407,7 +426,11 @@ function buildCard(cardData, index, isExisting = false, delay = 0) {
   }
 
   if (cardData.hidden) {
-    el.classList.add("card-back");
+    el.classList.add("card-back", "has-image");
+    const img = document.createElement("img");
+    img.className = "card-img";
+    img.src = "/static/images/cards/back.png";
+    el.appendChild(img);
     return el;
   }
 

@@ -1,7 +1,16 @@
+import sys
+import os
 from flask import Flask, jsonify, request, render_template
 from game import BlackjackGame
 
-app = Flask(__name__)
+if getattr(sys, 'frozen', False):
+    _base = sys._MEIPASS
+else:
+    _base = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__,
+            template_folder=os.path.join(_base, 'templates'),
+            static_folder=os.path.join(_base, 'static'))
 game = BlackjackGame()
 
 
@@ -84,4 +93,4 @@ def restart():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)
